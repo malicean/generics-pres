@@ -1,0 +1,4 @@
+c/out*
+csharp/*/bin/
+csharp/*/obj/
+rust/*/target/

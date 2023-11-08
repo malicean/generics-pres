@@ -1,0 +1,46 @@
+#! /usr/bin/env -S nu --stdin
+
+def main [i: int, --flags(-f): string] {
+  let src = $"($i).c"
+  let bin = $"./out($i)"
+
+  let args = [`-o` $bin $src]
+  let args = if $flags != null {
+    $args | append $flags
+  } else {
+    $args
+  }
+
+  rm $bin
+  gcc $args
+  time $bin
+
+  "done"
+}
+
+def "main all" [--flags(-f): string] {
+  let sources = ls |
+    get name | 
+    where { |f| $f =~ '^\d\.c$' }
+  let pairs = $sources |
+    each { |f| 
+      { 
+        src: $f,
+        bin: $"./out(($f | path parse).stem)"
+      }
+    }
+
+  $pairs | each { |p|
+    let args = [`-o` $p.bin $p.src]
+    let args = if $flags != null {
+      $args | append $flags
+    } else {
+      $args
+    }
+
+    rm -f $p.bin
+    gcc $args
+  }
+
+  $pairs | each { |p| run-external --redirect-combine --trim-end-newline time $p.bin }
+}

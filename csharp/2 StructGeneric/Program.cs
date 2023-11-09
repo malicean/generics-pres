@@ -38,8 +38,6 @@ T Compute<T>(T a_0, int n) where T : Number<T>
 }
 
 interface Number<TSelf>
-where
-    TSelf : Number<TSelf>
 {
     TSelf Four();
 

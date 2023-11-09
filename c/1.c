@@ -66,8 +66,8 @@ int compute_int(int a_0, int n) {
 // MAIN //
 //////////
 
-float approx(rational_t q) {
-  return (float) q.num / (float) q.denom;
+double approx(rational_t q) {
+  return (double) q.num / (double) q.denom;
 }
 
 int main() {

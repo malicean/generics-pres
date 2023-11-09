@@ -22,7 +22,10 @@ fn main() {
     }
 }
 
-fn compute(a_0: &dyn Number, n: i32) -> Box<dyn Number> {
+fn compute<T>(a_0: T, n: i32) -> T
+where
+    T: Number,
+{
     if n == 0 {
         a_0
     } else {
@@ -31,13 +34,13 @@ fn compute(a_0: &dyn Number, n: i32) -> Box<dyn Number> {
 }
 
 trait Number {
-    fn four(&self) -> &'static dyn Number;
+    const FOUR: Self;
 
-    fn seven(&self) -> &'static dyn Number;
+    const SEVEN: Self;
 
-    fn add(&self, rhs: &dyn Number) -> Box<dyn Number>;
+    fn add(self, rhs: Self) -> Self;
 
-    fn div(&self, rhs: &dyn Number) -> Box<dyn Number>;
+    fn div(self, rhs: Self) -> Self;
 }
 
 impl Number for i32 {

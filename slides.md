@@ -15,9 +15,37 @@ theme: theme.json
 
 What do they solve, and why does Rust (ab)use them?
 
+We will...
+
+- Introduce a problem in C
+- Introduce a variant of the problem
+- Generalize over the two
+- See how an object-oriented language solves it
+- See how Rust solves it
+
 ---
 
 # A Problem to Work With
+
+```c
+int compute(int a_0, int n) {
+  if (n == 0) {
+    return a_0;
+  }
+  else {
+    int a_prev = compute(a_0, n - 1);
+
+    return a_prev / 4 + 7;
+  }
+}
+
+int main() {
+  compute(343, 7);
+  return 0;
+}
+```
+
+---
 
 ```
 f(0) := 343
@@ -43,13 +71,14 @@ f(n) := f(n-1) / 4 + 7
 
 ## With integer (floor) division:
 
-`f(1) = 343 / 4 + 7 = 92`
+```
+f(1) = 343 / 4 + 7 = 92
+```
 
 ## With rational division:
 
 ```
-f(1) = 343 / 4 + 7 = 343 / 4 + 7(4 / 4)
-                   = 343 / 4 + 28 / 4
+f(1) = 343 / 4 + 7 = 343 / 4 + 28 / 4
                    = 371 / 4
                    = 92.75
 f(2) = 30.1875
@@ -62,9 +91,52 @@ f(7) = 9.35369873046875
 
 ---
 
+```c
+typedef struct {
+  int num;
+  int denom;
+} rational_t;
+
+rational_t compute_rational(rational_t a_0, int n) {
+  if (n == 0) {
+    return a_0;
+  }
+  else {
+    rational_t a_prev = compute_rational(a_0, n - 1);
+
+    rational_t q_4 = { .num = 4, .denom = 1 };
+    rational_t q_7 = { .num = 7, .denom = 1 };
+    
+    return add_rational(div_rational(a_prev, q_4), q_7);
+  }
+}
+```
+
+---
+
 # Code Duplication
 
-Expanding operators/literals
+```c
+...
+    int a_prev = compute_int(a_0, n - 1);
+
+    int z_4 = 4;
+    int z_7 = 7;
+    
+    return add_int(div_int(a_prev, z_4), z_7);
+...
+
+...
+    rational_t a_prev = compute_rational(a_0, n - 1);
+
+    rational_t q_4 = { .num = 4, .denom = 1 };
+    rational_t q_7 = { .num = 7, .denom = 1 };
+    
+    return add_rational(div_rational(a_prev, q_4), q_7);
+...
+```
+
+---
 
 ```
 f(a_0, n):
@@ -92,11 +164,24 @@ typedef struct {
   <int | rational_t> add(<int | rational_t> lhs, <int | rational_t> rhs);
   <int | rational_t> div(<int | rational_t> lhs, <int | rational_t> rhs);
 } typeinfo_t;
+
+<int | rational_t> compute(typeinfo_t t, <int | rational_t> a_0, int n) {
+  if (n == 0) {
+    return a_0;
+  }
+  else {
+    <int | rational_t> a_prev = compute(a_0, n - 1);
+
+    return t.add(t.div(a_prev, t.four), t.seven);
+  }
+}
 ```
+
+---
 
 ## Problems:
 
-- Not valid C at all
+- Not valid C, at all
 - `sizeof(int) != sizeof(rational_t)`
 
 ---
@@ -111,10 +196,19 @@ typedef struct {
   void *(*div)(void *lhs, void *rhs);
 } typeinfo_t;
 
-void example(typeinfo_t t) {
-  void *eleven = t.add(t.four, t.eleven);
+void *compute(typeinfo_t t, void *a_0, int n) {
+  if (n == 0) {
+    return a_0;
+  }
+  else {
+    void *a_prev = compute(a_0, n - 1);
+
+    return t.add(t.div(a_prev, t.four), t.seven);
+  }
 }
 ```
+
+---
 
 ## Compared to last:
 
@@ -139,12 +233,19 @@ typedef struct {
   void (*div)(void *dst, void *lhs, void *rhs);
 } typeinfo_t;
 
-void example(typeinfo_t t) {
-  char eleven_alloc[t.size];
-  void *eleven = (void *)eleven_alloc;
-  t.add(dst, t.four, t.eleven);
+void compute(typeinfo_t t, void *dst, void *a_0, int n) {
+  if (n == 0) {
+    memcpy(dst, a_0, t.size);
+  }
+  else {
+    compute(t, dst, a_0, n - 1); // *dst = a_prev
+    t.div(dst, dst, t.four);     // *dst = *dst / 4
+    t.add(dst, dst, t.seven);    // *dst = *dst + 7
+  }
 }
 ```
+
+---
 
 ## Compared to last:
 
@@ -159,7 +260,17 @@ void example(typeinfo_t t) {
 
 # Using Language Features
 
-Seems a lot like an `interface`...
+```c
+typedef struct {
+  size_t size;
+  void *four;
+  void *seven;
+  void (*add)(void *dst, void *lhs, void *rhs);
+  void (*div)(void *dst, void *lhs, void *rhs);
+} typeinfo_t;
+```
+
+...becomes...
 
 ```csharp
 interface Number
@@ -170,6 +281,29 @@ interface Number
     Number Div(Number rhs);
 }
 
+class Integer : Number { ... }
+
+class Rational : Number { ... }
+```
+
+---
+
+```c
+void compute(typeinfo_t t, void *dst, void *a_0, int n) {
+  if (n == 0) {
+    memcpy(dst, a_0, t.size);
+  }
+  else {
+    compute(t, dst, a_0, n - 1); // *dst = a_prev
+    t.div(dst, dst, t.four);     // *dst = *dst / 4
+    t.add(dst, dst, t.seven);    // *dst = *dst + 7
+  }
+}
+```
+
+...becomes...
+
+```csharp
 Number Compute(Number a_0, int n)
 {
     if (n == 0)
@@ -179,11 +313,9 @@ Number Compute(Number a_0, int n)
             .Div(a_0.Four())
             .Add(a_0.Seven());
 }
-
-class Integer : Number { ... }
-
-class Rational : Number { ... }
 ```
+
+---
 
 ## Compared to C:
 
@@ -200,16 +332,36 @@ class Rational : Number { ... }
 # Let's Introduce Generics!
 
 ```csharp
-interface Number<TSelf>
-where
-    TSelf : Number<TSelf>
+interface Number<T>
 {
-    TSelf Four();
-    TSelf Seven();
-    TSelf Add(TSelf rhs);
-    TSelf Div(TSelf rhs);
+    T Four();
+    T Seven();
+    T Add(T rhs);
+    T Div(T rhs);
 }
 
+struct Integer : Number<Integer> { ... }
+
+struct Rational : Number<Rational> { ... }
+```
+
+---
+
+```csharp
+Number Compute(Number a_0, int n)
+{
+    if (n == 0)
+        return a_0;
+    else
+        return Compute(a_0, n - 1)
+            .Div(a_0.Four())
+            .Add(a_0.Seven());
+}
+```
+
+...becomes...
+
+```csharp
 T Compute<T>(T a_0, int n) where T : Number<T>
 {
     if (n == 0)
@@ -219,11 +371,9 @@ T Compute<T>(T a_0, int n) where T : Number<T>
             .Div(a_0.Four())
             .Add(a_0.Seven());
 }
-
-struct Integer : Number<Integer> { ... }
-
-struct Rational : Number<Rational> { ... }
 ```
+
+---
 
 # Compared to last:
 
@@ -257,11 +407,12 @@ where
     }
 }
 ```
+---
 
 # Compared to C#:
 
 - Implicit `TSelf`
-- Constants; no need for `any`
+- Constants; we can get a `Number` before being given one
 - Aggressive compiler
 
 ---
@@ -286,8 +437,6 @@ pub trait Div<Rhs = Self> {
 
 `T: Number` is now `T: Add + Div`
 
-Still need our own constants though, maybe an `Ids` trait
-
 ```rust
 trait Ids {
   const ZERO: Self;
@@ -295,65 +444,34 @@ trait Ids {
 }
 ```
 
-Total: `T: Add + Div + Ids`
+`T: Number` is now `T: Add + Div + Ids`
+
+---
+
+# Compared to Last
+
+- Atomized traits; some types might impl `Add` but not
+  - `Div`: vectors, incl. matrices
+  - `Ids`: non-zero integers, also vectors (`Ids` should be atomized)
+- Finer granularity; `lhs` and `rhs` don't need the same type f.e. scalar and vector
+- In `std`; a lot of types already implement these
 
 ---
 
 # What If I Want Polymorphism?
 
-Intefaces used dynamic dispatch. Monomorphization removed it.
+Not as common of a problem in Rust; you can use generics to know the exact type.
 
-Can use "trait objects"
+Out of scope for this presentation, but if you are interested:
 
-```rust
-fn main() {
-  let use_rational = ...;
-  let x: Box<dyn Number> = if use_rational {
-    Box::new(Rational::new(7, 3))
-  }
-  else {
-    Box::new(Integer::new(2))
-  }
-}
+## Closest to Polymorphism
 
-// struct defs here
+Dynamic dispatch via *trait objects*
 
-impl Integer {
-  fn new(n: i32) -> Self {
-    ...
-  }
-}
+Requires references and allocations
 
-impl Rational {
-  fn new(n: i32, d: i32) -> Self {
-    ...
-  }
-}
-```
+## Simplest Method
 
----
+Static dispatch via *enums*
 
-# What If I Want Polymorphism (But Fast)?
-
-We know all possible "polymorphs": `Integer`, `Rational`
-
-```rust
-fn main() {
-  let use_rational = ...;
-  let x = if use_rational {
-    PolyNumber::Rational(Rational::new(7, 3))
-  }
-  else {
-    PolyNumber::Integer(Integer::new(2))
-  }
-}
-
-enum PolyNumber {
-  Integer(Integer),
-  Rational(Rational)
-}
-
-impl Number for PolyNumber {
-  ...
-}
-```
+Requires big `match` statements

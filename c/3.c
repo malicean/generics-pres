@@ -19,14 +19,9 @@ void compute(typeinfo_t t, void *dst, void *a_0, int n) {
     memcpy(dst, a_0, t.size);
   }
   else {
-    char retbuf[t.size];
-    void *ret = (void *)retbuf;
-
-    compute(t, ret, a_0, n - 1); // a_prev
-    t.div(ret, ret, t.four);     // / 4
-    t.add(ret, ret, t.seven);    // + 7
-    
-    memcpy(dst, ret, t.size);
+    compute(t, dst, a_0, n - 1); // a_prev
+    t.div(dst, dst, t.four);     // / 4
+    t.add(dst, dst, t.seven);    // + 7
   }
 }
 
@@ -109,8 +104,8 @@ typeinfo_t type_int = {
 // MAIN //
 //////////
 
-float approx(rational_t q) {
-  return (float) q.num / (float) q.denom;
+double approx(rational_t q) {
+  return (double) q.num / (double) q.denom;
 }
 
 int main() {
